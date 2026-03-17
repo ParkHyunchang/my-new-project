@@ -7,6 +7,7 @@ Vue 3 기반 프론트엔드 프로젝트입니다.
 - **Vue 3**
 - **Vue Router 4**
 - **Vue CLI 5**
+- **Axios** (API 통신)
 
 ## 로컬 실행 방법
 
@@ -40,6 +41,28 @@ npm run build
 빌드 결과물은 `dist/` 폴더에 생성됩니다.
 
 ## 백엔드 연결
+
+### API baseURL 자동 설정
+
+`src/axios.js`에서 접속 주소에 따라 백엔드 URL을 자동 설정합니다.
+
+| 프론트 접속 주소    | API 요청 주소               |
+| ------------------- | --------------------------- |
+| localhost:8080      | http://localhost:3210       |
+| 125.141.20.218:3110 | http://125.141.20.218:3210  |
+| xxx.synology.me     | http://xxx.synology.me:3210 |
+
+### API 호출 예시
+
+```javascript
+import axios from "@/axios";
+
+axios.get("/health");
+axios.get("/api/...");
+axios.post("/api/...", data);
+```
+
+### 사전 요구사항
 
 백엔드 서버(`my-new-project_backend`)가 **포트 3210**에서 실행 중이어야 합니다.
 
