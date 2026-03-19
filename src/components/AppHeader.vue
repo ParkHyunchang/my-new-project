@@ -1,13 +1,17 @@
 <template>
   <header class="app-header">
     <router-link to="/" class="logo">My New Project</router-link>
-    <nav class="nav">
+    <button type="button" class="hamburger" :class="{ 'hamburger--open': mobileMenuOpen }" @click="mobileMenuOpen = !mobileMenuOpen">
+      <span></span><span></span><span></span>
+    </button>
+    <nav class="nav" :class="{ 'nav--open': mobileMenuOpen }">
       <router-link
         v-for="m in menus"
         :key="m.id"
         :to="m.path"
         class="nav__link"
         active-class="nav__link--active"
+        @click="mobileMenuOpen = false"
       >
         {{ m.name }}
       </router-link>
@@ -37,10 +41,17 @@ export default {
       menus: [],
       loginPopupVisible: false,
       isLoggedIn: false,
-      currentUser: ''
+      currentUser: '',
+      mobileMenuOpen: false
     }
   },
   mounted() {
+    const saved = localStorage.getItem('loginUser')
+    if (saved) {
+      this.isLoggedIn = true
+      this.currentUser = saved
+    }
+
     const fallback = [{ id: 1, name: 'Home', path: '/' }, { id: 2, name: 'Test', path: '/test' }]
     axios.get('/api/menus')
       .then((res) => { this.menus = (res.data && res.data.length) ? res.data : fallback })
@@ -48,15 +59,19 @@ export default {
   },
   methods: {
     showLoginPopup() {
+      this.mobileMenuOpen = false
       this.loginPopupVisible = true
     },
     onLoginSuccess({ id }) {
       this.isLoggedIn = true
       this.currentUser = id
+      localStorage.setItem('loginUser', id)
     },
     logout() {
       this.isLoggedIn = false
       this.currentUser = ''
+      localStorage.removeItem('loginUser')
+      this.mobileMenuOpen = false
     }
   }
 }
@@ -77,8 +92,39 @@ export default {
   color: var(--accent);
 }
 
+.hamburger {
+  display: none;
+  flex-direction: column;
+  gap: 5px;
+  padding: 4px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.hamburger span {
+  display: block;
+  width: 24px;
+  height: 2px;
+  background: var(--accent);
+  transition: transform 0.3s, opacity 0.3s;
+}
+
+.hamburger--open span:nth-child(1) {
+  transform: translateY(7px) rotate(45deg);
+}
+
+.hamburger--open span:nth-child(2) {
+  opacity: 0;
+}
+
+.hamburger--open span:nth-child(3) {
+  transform: translateY(-7px) rotate(-45deg);
+}
+
 .nav {
   display: flex;
+  align-items: center;
   gap: 1.5rem;
 }
 
@@ -109,5 +155,41 @@ export default {
 .nav__btn:hover {
   background: var(--accent-dim);
   border-color: var(--accent);
+}
+
+@media (max-width: 640px) {
+  .hamburger {
+    display: flex;
+  }
+
+  .nav {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    padding: 0.5rem 0;
+    background: var(--surface);
+    border-bottom: 1px solid var(--card-border);
+    z-index: 100;
+  }
+
+  .nav--open {
+    display: flex;
+  }
+
+  .nav__link,
+  .nav__user,
+  .nav__btn {
+    padding: 0.75rem 2rem;
+    text-align: left;
+  }
+
+  .app-header {
+    position: relative;
+  }
 }
 </style>
