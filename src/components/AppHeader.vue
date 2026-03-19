@@ -1,9 +1,6 @@
 <template>
   <header class="app-header">
     <router-link to="/" class="logo">My New Project</router-link>
-    <button type="button" class="hamburger" :class="{ 'hamburger--open': mobileMenuOpen }" @click="mobileMenuOpen = !mobileMenuOpen">
-      <span></span><span></span><span></span>
-    </button>
     <nav class="nav" :class="{ 'nav--open': mobileMenuOpen }">
       <router-link
         v-for="m in menus"
@@ -15,12 +12,17 @@
       >
         {{ m.name }}
       </router-link>
+    </nav>
+    <div class="header__right">
       <template v-if="isLoggedIn">
         <span class="nav__user">{{ currentUser }}님</span>
         <button type="button" class="nav__btn" @click="logout">로그아웃</button>
       </template>
       <button v-else type="button" class="nav__btn" @click="showLoginPopup">로그인</button>
-    </nav>
+      <button type="button" class="hamburger" :class="{ 'hamburger--open': mobileMenuOpen }" @click="mobileMenuOpen = !mobileMenuOpen">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
     <LoginPopup
       :visible="loginPopupVisible"
       @close="loginPopupVisible = false"
@@ -157,6 +159,12 @@ export default {
   border-color: var(--accent);
 }
 
+.header__right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
 @media (max-width: 640px) {
   .hamburger {
     display: flex;
@@ -181,9 +189,7 @@ export default {
     display: flex;
   }
 
-  .nav__link,
-  .nav__user,
-  .nav__btn {
+  .nav__link {
     padding: 0.75rem 2rem;
     text-align: left;
   }
