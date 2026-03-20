@@ -12,13 +12,34 @@
       >{{ m.name }}{{ m.visible === false ? ' (숨김)' : '' }}</router-link>
     </nav>
     <div class="header__right">
+      <!-- 데스크탑 전용 -->
       <template v-if="isLoggedIn">
-        <router-link to="/admin" class="nav__btn" @click="mobileMenuOpen = false">관리자</router-link>
-        <span class="nav__user">{{ currentUser }}님</span>
-        <button type="button" class="nav__btn" @click="logout">로그아웃</button>
+        <router-link to="/admin" class="nav__btn desktop-only">관리자</router-link>
+        <span class="nav__user desktop-only">{{ currentUser }}님</span>
+        <button type="button" class="nav__btn desktop-only" @click="logout">로그아웃</button>
       </template>
-      <button v-else type="button" class="nav__btn" @click="showLoginPopup">로그인</button>
-      <button type="button" class="hamburger" :class="{ 'hamburger--open': mobileMenuOpen }" @click="mobileMenuOpen = !mobileMenuOpen">
+      <button v-else type="button" class="nav__btn desktop-only" @click="showLoginPopup">로그인</button>
+
+      <!-- 모바일 전용: 아바타 or 로그인 버튼 -->
+      <div v-if="isLoggedIn" class="mobile-avatar-wrapper mobile-only" @click.stop="toggleUserDropdown">
+        <div class="mobile-avatar">{{ userInitial }}</div>
+        <transition name="dropdown-fade">
+          <div v-if="showUserDropdown" class="mobile-user-dropdown" @click.stop>
+            <div class="dropdown-user-header">
+              <div class="dropdown-avatar-lg">{{ userInitial }}</div>
+              <div class="dropdown-user-meta">
+                <span class="dropdown-username">{{ currentUser }}</span>
+              </div>
+            </div>
+            <div class="dropdown-divider"></div>
+            <router-link to="/admin" class="dropdown-item" @click="closeAll">관리자</router-link>
+            <button class="dropdown-logout-btn" @click="logout">로그아웃</button>
+          </div>
+        </transition>
+      </div>
+      <button v-else type="button" class="nav__btn mobile-only" @click="showLoginPopup">로그인</button>
+
+      <button type="button" class="hamburger" :class="{ 'hamburger--open': mobileMenuOpen }" @click="toggleMenu">
         <span></span><span></span><span></span>
       </button>
     </div>
@@ -44,7 +65,13 @@ export default {
       isLoggedIn: false,
       currentUser: '',
       mobileMenuOpen: false,
+      showUserDropdown: false,
       adminToken: ''
+    }
+  },
+  computed: {
+    userInitial() {
+      return this.currentUser?.charAt(0)?.toUpperCase() || '?'
     }
   },
   mounted() {
@@ -55,11 +82,14 @@ export default {
       this.currentUser = saved
       this.adminToken = savedToken
     } else {
-      // 토큰 없는 이전 세션 정리
       localStorage.removeItem('loginUser')
       localStorage.removeItem('adminToken')
     }
     this.loadMenus()
+    document.addEventListener('click', this.handleDocumentClick)
+  },
+  beforeUnmount() {
+    document.removeEventListener('click', this.handleDocumentClick)
   },
   methods: {
     loadMenus() {
@@ -69,7 +99,6 @@ export default {
           .then(res => { this.menus = (res.data && res.data.length) ? res.data : fallback })
           .catch(err => {
             if (err.response?.status === 401) {
-              // 백엔드 재시작 등으로 토큰이 만료된 경우 자동 로그아웃
               this.isLoggedIn = false
               this.currentUser = ''
               this.adminToken = ''
@@ -84,8 +113,28 @@ export default {
           .catch(() => { this.menus = fallback })
       }
     },
-    showLoginPopup() {
+    toggleMenu() {
+      this.mobileMenuOpen = !this.mobileMenuOpen
+      this.showUserDropdown = false
+    },
+    toggleUserDropdown() {
+      this.showUserDropdown = !this.showUserDropdown
       this.mobileMenuOpen = false
+    },
+    closeAll() {
+      this.mobileMenuOpen = false
+      this.showUserDropdown = false
+    },
+    handleDocumentClick(event) {
+      if (!event.target.closest('.mobile-avatar-wrapper') && this.showUserDropdown) {
+        this.showUserDropdown = false
+      }
+      if (!event.target.closest('.nav') && !event.target.closest('.hamburger') && this.mobileMenuOpen) {
+        this.mobileMenuOpen = false
+      }
+    },
+    showLoginPopup() {
+      this.closeAll()
       this.loginPopupVisible = true
     },
     onLoginSuccess({ id, token }) {
@@ -102,7 +151,7 @@ export default {
       this.adminToken = ''
       localStorage.removeItem('loginUser')
       localStorage.removeItem('adminToken')
-      this.mobileMenuOpen = false
+      this.closeAll()
       this.loadMenus()
       this.$router.push('/')
     }
@@ -118,6 +167,7 @@ export default {
   padding: 1rem 2rem;
   background: var(--surface);
   border-bottom: 1px solid var(--card-border);
+  position: relative;
 }
 
 .logo {
@@ -143,17 +193,9 @@ export default {
   transition: transform 0.3s, opacity 0.3s;
 }
 
-.hamburger--open span:nth-child(1) {
-  transform: translateY(7px) rotate(45deg);
-}
-
-.hamburger--open span:nth-child(2) {
-  opacity: 0;
-}
-
-.hamburger--open span:nth-child(3) {
-  transform: translateY(-7px) rotate(-45deg);
-}
+.hamburger--open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+.hamburger--open span:nth-child(2) { opacity: 0; }
+.hamburger--open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
 
 .nav {
   display: flex;
@@ -201,10 +243,134 @@ export default {
   gap: 1rem;
 }
 
+/* 모바일 아바타 */
+.mobile-avatar-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.mobile-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), #8a6030);
+  color: #1a1510;
+  font-size: 14px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  user-select: none;
+  border: 1px solid var(--accent);
+}
+
+.mobile-user-dropdown {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  background: var(--surface);
+  border-radius: 10px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+  border: 1px solid var(--card-border);
+  min-width: 200px;
+  z-index: 20000;
+  overflow: hidden;
+}
+
+.dropdown-user-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--accent-dim);
+}
+
+.dropdown-avatar-lg {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), #8a6030);
+  color: #1a1510;
+  font-size: 16px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.dropdown-user-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.dropdown-username {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dropdown-divider {
+  height: 1px;
+  background: var(--card-border);
+}
+
+.dropdown-item {
+  display: block;
+  padding: 12px 16px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: background 0.15s;
+}
+
+.dropdown-item:hover {
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+.dropdown-logout-btn {
+  width: 100%;
+  padding: 12px 16px;
+  background: none;
+  border: none;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 500;
+  color: #c45a5a;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.dropdown-logout-btn:hover {
+  background: rgba(196, 90, 90, 0.1);
+}
+
+.dropdown-fade-enter-active,
+.dropdown-fade-leave-active {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.dropdown-fade-enter-from,
+.dropdown-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+
+/* 반응형 */
+.mobile-only { display: none; }
+
 @media (max-width: 640px) {
-  .hamburger {
-    display: flex;
-  }
+  .hamburger { display: flex; }
+  .desktop-only { display: none; }
+  .mobile-only { display: flex; }
 
   .nav {
     display: none;
@@ -221,17 +387,11 @@ export default {
     z-index: 100;
   }
 
-  .nav--open {
-    display: flex;
-  }
+  .nav--open { display: flex; }
 
   .nav__link {
     padding: 0.75rem 2rem;
     text-align: left;
-  }
-
-  .app-header {
-    position: relative;
   }
 }
 </style>
