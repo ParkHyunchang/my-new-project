@@ -7,14 +7,13 @@
         :key="m.id"
         :to="m.path"
         class="nav__link"
-        active-class="nav__link--active"
+        :class="{ 'nav__link--active': $route.path === m.path, 'nav__link--hidden': m.visible === false }"
         @click="mobileMenuOpen = false"
-      >
-        {{ m.name }}
-      </router-link>
+      >{{ m.name }}{{ m.visible === false ? ' (숨김)' : '' }}</router-link>
     </nav>
     <div class="header__right">
       <template v-if="isLoggedIn">
+        <router-link to="/admin" class="nav__btn" @click="mobileMenuOpen = false">관리자</router-link>
         <span class="nav__user">{{ currentUser }}님</span>
         <button type="button" class="nav__btn" @click="logout">로그아웃</button>
       </template>
@@ -44,36 +43,68 @@ export default {
       loginPopupVisible: false,
       isLoggedIn: false,
       currentUser: '',
-      mobileMenuOpen: false
+      mobileMenuOpen: false,
+      adminToken: ''
     }
   },
   mounted() {
     const saved = localStorage.getItem('loginUser')
-    if (saved) {
+    const savedToken = localStorage.getItem('adminToken')
+    if (saved && savedToken) {
       this.isLoggedIn = true
       this.currentUser = saved
+      this.adminToken = savedToken
+    } else {
+      // 토큰 없는 이전 세션 정리
+      localStorage.removeItem('loginUser')
+      localStorage.removeItem('adminToken')
     }
-
-    const fallback = [{ id: 1, name: 'Home', path: '/' }, { id: 2, name: 'Test', path: '/test' }]
-    axios.get('/api/menus')
-      .then((res) => { this.menus = (res.data && res.data.length) ? res.data : fallback })
-      .catch(() => { this.menus = fallback })
+    this.loadMenus()
   },
   methods: {
+    loadMenus() {
+      const fallback = [{ id: 1, name: 'Home', path: '/' }, { id: 2, name: 'Test', path: '/test' }]
+      if (this.adminToken) {
+        axios.get('/api/admin/menus', { headers: { Authorization: `Bearer ${this.adminToken}` } })
+          .then(res => { this.menus = (res.data && res.data.length) ? res.data : fallback })
+          .catch(err => {
+            if (err.response?.status === 401) {
+              // 백엔드 재시작 등으로 토큰이 만료된 경우 자동 로그아웃
+              this.isLoggedIn = false
+              this.currentUser = ''
+              this.adminToken = ''
+              localStorage.removeItem('loginUser')
+              localStorage.removeItem('adminToken')
+            }
+            this.menus = fallback
+          })
+      } else {
+        axios.get('/api/menus')
+          .then(res => { this.menus = (res.data && res.data.length) ? res.data : fallback })
+          .catch(() => { this.menus = fallback })
+      }
+    },
     showLoginPopup() {
       this.mobileMenuOpen = false
       this.loginPopupVisible = true
     },
-    onLoginSuccess({ id }) {
+    onLoginSuccess({ id, token }) {
       this.isLoggedIn = true
       this.currentUser = id
+      this.adminToken = token
       localStorage.setItem('loginUser', id)
+      localStorage.setItem('adminToken', token)
+      this.loadMenus()
     },
     logout() {
       this.isLoggedIn = false
       this.currentUser = ''
+      this.adminToken = ''
       localStorage.removeItem('loginUser')
+      localStorage.removeItem('adminToken')
       this.mobileMenuOpen = false
+      this.loadMenus()
+      this.$router.push('/')
     }
   }
 }
@@ -139,6 +170,10 @@ export default {
   color: var(--accent);
 }
 
+.nav__link--hidden {
+  opacity: 0.4;
+}
+
 .nav__user {
   color: var(--text-secondary);
   font-size: 0.9rem;
@@ -152,6 +187,7 @@ export default {
   border: 1px solid var(--card-border);
   border-radius: 6px;
   cursor: pointer;
+  text-decoration: none;
 }
 
 .nav__btn:hover {

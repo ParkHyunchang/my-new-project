@@ -76,7 +76,7 @@ export default {
           password: this.password
         })
         if (res.data && res.data.success) {
-          this.$emit('login-success', { id: res.data.username })
+          this.$emit('login-success', { id: res.data.username, token: res.data.token })
           this.close()
         } else {
           this.errorMsg = res.data?.message || '로그인에 실패했습니다.'

@@ -1,17 +1,12 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import HomeView from '../views/HomeView.vue'
-import TestView from '../views/TestView.vue'
+import AdminView from '../views/AdminView.vue'
 
+// /admin만 정적 라우트, 나머지는 DB에서 동적으로 로드됨 (App.vue)
 const routes = [
   {
-    path: '/',
-    name: 'home',
-    component: HomeView
-  },
-  {
-    path: '/test',
-    name: 'test',
-    component: TestView
+    path: '/admin',
+    name: 'admin',
+    component: AdminView
   }
 ]
 
