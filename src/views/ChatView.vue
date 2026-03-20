@@ -32,18 +32,28 @@
       </div>
 
       <div class="messages" ref="messagesEl">
-        <div v-if="historyLoading" class="empty-state">불러오는 중...</div>
-        <div v-else-if="messages.length === 0" class="empty-state">무엇이든 물어보세요.</div>
-        <div
-          v-for="(msg, i) in messages"
-          :key="i"
-          class="message"
-          :class="msg.role"
-        >
-          <div class="message__bubble">
-            <pre class="message__text">{{ msg.content }}</pre>
-          </div>
+        <!-- 새 채팅 환영 화면 -->
+        <div v-if="!sessionKey && !historyLoading" class="welcome-screen">
+          <h1 class="welcome-title">
+            {{ isLoggedIn ? `안녕하세요, ${username}님` : '무엇이든 물어보세요' }}
+          </h1>
+          <p class="welcome-subtitle">Claude AI와 대화해보세요</p>
         </div>
+        <!-- 히스토리 로딩 중 -->
+        <div v-else-if="historyLoading" class="empty-state">불러오는 중...</div>
+        <!-- 메시지 목록 -->
+        <template v-else>
+          <div
+            v-for="(msg, i) in messages"
+            :key="i"
+            class="message"
+            :class="msg.role"
+          >
+            <div class="message__bubble">
+              <pre class="message__text">{{ msg.content }}</pre>
+            </div>
+          </div>
+        </template>
         <div v-if="loading" class="message assistant">
           <div class="message__bubble">
             <span class="loading-dots"><span>.</span><span>.</span><span>.</span></span>
@@ -88,6 +98,7 @@ export default {
       sessionKey: '',
       isLoggedIn: false,
       username: '',
+      anonId: '',
       sessions: [],
       sidebarOpen: false,
     }
@@ -99,6 +110,7 @@ export default {
     if (this.isLoggedIn) {
       this.loadUserSessions()
     } else {
+      this.anonId = this.getOrCreateAnonId()
       this.loadAnonSessions()
     }
   },
@@ -107,65 +119,45 @@ export default {
 
     loadUserSessions() {
       axios.get(`/api/chat/sessions/${this.username}`)
-        .then(res => {
-          this.sessions = res.data
-          if (this.sessions.length > 0) {
-            const stored = localStorage.getItem(`chat_current_${this.username}`)
-            const current = this.sessions.find(s => s.sessionKey === stored) || this.sessions[0]
-            this.switchSession(current.sessionKey)
-          } else {
-            this.startNewChat()
-          }
-        })
-        .catch(() => this.startNewChat())
+        .then(res => { this.sessions = res.data })
+        .catch(() => {})
         .finally(() => { this.initialLoading = false })
     },
 
     loadAnonSessions() {
-      const keys = this.getAnonSessionKeys()
-      if (keys.length === 0) {
-        this.startNewChat()
-        this.initialLoading = false
-        return
-      }
-      axios.post('/api/chat/sessions/by-keys', keys)
-        .then(res => {
-          this.sessions = res.data
-          const currentKey = localStorage.getItem('chat_anon_current')
-          const current = this.sessions.find(s => s.sessionKey === currentKey) || this.sessions[0]
-          if (current) this.switchSession(current.sessionKey)
-          else this.startNewChat()
-        })
-        .catch(() => this.startNewChat())
+      axios.get(`/api/chat/sessions/anon/${this.anonId}`)
+        .then(res => { this.sessions = res.data })
+        .catch(() => {})
         .finally(() => { this.initialLoading = false })
+    },
+
+    // ── 쿠키 관리 ──────────────────────────────────────────────
+
+    getCookie(name) {
+      const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'))
+      return match ? match[2] : null
+    },
+
+    setCookie(name, value, days) {
+      const expires = new Date(Date.now() + days * 864e5).toUTCString()
+      document.cookie = `${name}=${value}; expires=${expires}; path=/; SameSite=Lax`
+    },
+
+    getOrCreateAnonId() {
+      let id = this.getCookie('chat_anon_id')
+      if (!id) {
+        id = crypto.randomUUID()
+        this.setCookie('chat_anon_id', id, 365)
+      }
+      return id
     },
 
     // ── 세션 관리 ──────────────────────────────────────────────
 
-    getAnonSessionKeys() {
-      try { return JSON.parse(localStorage.getItem('chat_anon_sessions') || '[]') } catch { return [] }
-    },
-
     startNewChat() {
-      const newKey = crypto.randomUUID()
-      this.sessionKey = newKey
+      this.sessionKey = ''
       this.messages = []
       this.historyLoading = false
-
-      if (this.isLoggedIn) {
-        localStorage.setItem(`chat_current_${this.username}`, newKey)
-      } else {
-        const keys = this.getAnonSessionKeys()
-        keys.unshift(newKey)
-        localStorage.setItem('chat_anon_sessions', JSON.stringify(keys))
-        localStorage.setItem('chat_anon_current', newKey)
-      }
-
-      // 사이드바에 '새 대화' 플레이스홀더 추가 (첫 메시지 전송 후 제목 채워짐)
-      this.sessions = [
-        { sessionKey: newKey, title: null, lastActivity: null, messageCount: 0 },
-        ...this.sessions.filter(s => s.sessionKey !== newKey),
-      ]
       this.sidebarOpen = false
     },
 
@@ -200,6 +192,11 @@ export default {
       const text = this.input.trim()
       if (!text || this.loading) return
 
+      // 새 채팅 상태면 지금 세션키 생성
+      if (!this.sessionKey) {
+        this.sessionKey = crypto.randomUUID()
+      }
+
       this.messages.push({ role: 'user', content: text })
       this.input = ''
       this.$nextTick(() => this.autoResize())
@@ -211,12 +208,13 @@ export default {
           sessionKey: this.sessionKey,
           content: text,
           username: this.isLoggedIn ? this.username : null,
+          anonId: this.isLoggedIn ? null : this.anonId,
         })
         this.messages.push({ role: 'assistant', content: res.data.content })
-        this.refreshSessions()
       } catch {
-        this.messages.push({ role: 'assistant', content: '오류가 발생했습니다. 잠시 후 다시 시도해주세요.' })
+        this.messages.push({ role: 'assistant', content: '서버 연결에 실패했습니다. 잠시 후 다시 시도해주세요.' })
       } finally {
+        this.refreshSessions()
         this.loading = false
         this.$nextTick(() => this.scrollToBottom())
       }
@@ -227,11 +225,8 @@ export default {
         axios.get(`/api/chat/sessions/${this.username}`)
           .then(res => { this.sessions = res.data })
       } else {
-        const keys = this.getAnonSessionKeys()
-        if (keys.length > 0) {
-          axios.post('/api/chat/sessions/by-keys', keys)
-            .then(res => { this.sessions = res.data })
-        }
+        axios.get(`/api/chat/sessions/anon/${this.anonId}`)
+          .then(res => { this.sessions = res.data })
       }
     },
 
@@ -422,6 +417,30 @@ export default {
   font-size: 0.9rem;
 }
 
+.welcome-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  gap: 0.6rem;
+  text-align: center;
+  padding: 2rem;
+}
+
+.welcome-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.welcome-subtitle {
+  font-size: 0.95rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
 .message { display: flex; }
 .message.user { justify-content: flex-end; }
 .message.assistant { justify-content: flex-start; }
@@ -553,6 +572,18 @@ export default {
 
   .chat-input-area {
     padding: 0.65rem 0.9rem;
+  }
+
+  .welcome-title {
+    font-size: 1.3rem;
+  }
+
+  .welcome-subtitle {
+    font-size: 0.875rem;
+  }
+
+  .welcome-screen {
+    padding: 1.5rem 1rem;
   }
 }
 </style>
