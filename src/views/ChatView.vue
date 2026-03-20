@@ -131,6 +131,19 @@ export default {
         .finally(() => { this.initialLoading = false })
     },
 
+    // ── UUID 생성 (구형 브라우저 폴백 포함) ────────────────────
+
+    generateUUID() {
+      if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+        return crypto.randomUUID()
+      }
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+        const r = Math.random() * 16 | 0
+        const v = c === 'x' ? r : (r & 0x3 | 0x8)
+        return v.toString(16)
+      })
+    },
+
     // ── 쿠키 관리 ──────────────────────────────────────────────
 
     getCookie(name) {
@@ -146,7 +159,7 @@ export default {
     getOrCreateAnonId() {
       let id = this.getCookie('chat_anon_id')
       if (!id) {
-        id = crypto.randomUUID()
+        id = this.generateUUID()
         this.setCookie('chat_anon_id', id, 365)
       }
       return id
@@ -194,7 +207,7 @@ export default {
 
       // 새 채팅 상태면 지금 세션키 생성
       if (!this.sessionKey) {
-        this.sessionKey = crypto.randomUUID()
+        this.sessionKey = this.generateUUID()
       }
 
       this.messages.push({ role: 'user', content: text })
