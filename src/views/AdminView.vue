@@ -1,5 +1,10 @@
 <template>
   <div class="admin-view">
+    <div class="admin-tabs">
+      <router-link to="/admin" class="admin-tab">메뉴 관리</router-link>
+      <router-link to="/admin/chat" class="admin-tab">채팅 히스토리</router-link>
+    </div>
+
     <h1 class="admin-view__title">메뉴 관리</h1>
     <p class="admin-view__desc">로그인하지 않은 방문자에게 표시할 메뉴를 설정합니다.</p>
 
@@ -104,6 +109,30 @@ export default {
   max-width: 860px;
   margin: 2rem auto;
   padding: 0 1rem;
+}
+
+.admin-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid var(--card-border);
+  padding-bottom: 0;
+}
+
+.admin-tab {
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.admin-tab:hover,
+.admin-tab.router-link-exact-active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
 }
 
 .admin-view__title {

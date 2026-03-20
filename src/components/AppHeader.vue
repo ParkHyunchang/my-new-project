@@ -32,7 +32,8 @@
               </div>
             </div>
             <div class="dropdown-divider"></div>
-            <router-link to="/admin" class="dropdown-item" @click="closeAll">관리자</router-link>
+            <router-link to="/admin" class="dropdown-item" @click="closeAll">메뉴 관리</router-link>
+            <router-link to="/admin/chat" class="dropdown-item" @click="closeAll">채팅 히스토리</router-link>
             <button class="dropdown-logout-btn" @click="logout">로그아웃</button>
           </div>
         </transition>
@@ -144,6 +145,7 @@ export default {
       localStorage.setItem('loginUser', id)
       localStorage.setItem('adminToken', token)
       this.loadMenus()
+      this.$router.push('/')
     },
     logout() {
       this.isLoggedIn = false

@@ -2,4 +2,6 @@
 export const componentRegistry = {
   HomeView: () => import('@/views/HomeView.vue'),
   TestView: () => import('@/views/TestView.vue'),
+  ChatView: () => import('@/views/ChatView.vue'),
+  AdminChatHistoryView: () => import('@/views/AdminChatHistoryView.vue'),
 }
